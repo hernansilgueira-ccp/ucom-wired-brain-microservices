@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "/0OLNN1GNr671Y6wAi81D9s8J18FU9wEofNyRt8uzF3V1OpWuLBAnwlDlKu/NSyPvu0fbgBGt7fNV5yobhOFbQ==",
+  "success": true,
+  "projectFilePath": "D:\\scm\\psod\\psod-docker-run\\psod-docker-run-source\\working\\web\\src\\WiredBrain.Web\\WiredBrain.Web.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\elton\\.nuget\\packages\\prometheus-net\\3.6.0\\prometheus-net.3.6.0.nupkg.sha512",
+    "C:\\Users\\elton\\.nuget\\packages\\prometheus-net.aspnetcore\\3.6.0\\prometheus-net.aspnetcore.3.6.0.nupkg.sha512",
+    "C:\\Users\\elton\\.nuget\\packages\\restsharp\\106.11.7\\restsharp.106.11.7.nupkg.sha512"
+  ],
+  "logs": []
+}
