@@ -151,7 +151,11 @@ El informe completo del proyecto se encuentra disponible en:
 - [Informe técnico — Wired Brain Apps](docs/Informe_Tecnico_Wired_Brain_Apps.docx)
 
 ## Autores
-Antonio Aguero
-Victor Martinez
-Hernan Silgueira
-UCOM, Integración de Sistemas I, 2026.
+
+- Antonio Aguero
+- Victor Martinez
+- Hernan Silgueira
+
+**Universidad:** UCOM  
+**Asignatura:** Integración de Sistemas I  
+**Año:** 2026
