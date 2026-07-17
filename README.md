@@ -1,491 +1,157 @@
-# Wired Brain Apps - Arquitectura de Microservicios
+# Wired Brain Apps — Microservicios con Docker Compose
 
-## Descripción del Proyecto
+Implementación académica de una arquitectura de microservicios para consultar productos y controlar inventario de una cafetería. La solución integra servicios desarrollados en Java, Go y ASP.NET Core, una base PostgreSQL y monitoreo centralizado con Prometheus.
 
-**Wired Brain Apps** es una aplicación de arquitectura de microservicios diseñada para gestionar un sistema de café con productos y control de inventario. La aplicación está compuesta por múltiples servicios que se comunican entre sí en un entorno containerizado con Docker.
+## Arquitectura
 
-### Características principales:
-- Arquitectura de microservicios con 4 componentes principales
-- Containerización con Docker y Docker Compose
-- Monitoreo con Prometheus
-- Escalabilidad mediante servicios desacoplados
-- API REST para gestión de productos e inventario
+```text
+Usuario (puerto 8080)
+        |
+        v
+Web ASP.NET Core
+   |            |
+   v            v
+Products API   Stock API
+Spring Boot    Go
+puerto 8081    puerto 8082
+   |            |
+   +------v-----+
+       PostgreSQL
+       red interna
 
----
-
-## Arquitectura y Componentes
-
-### Diagrama de Componentes
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    WEB FRONTEND                          │
-│  (ASP.NET Core - Puerto 8080)                           │
-└──────────────┬──────────────────────────────┬───────────┘
-               │                              │
-               ▼                              ▼
-        ┌──────────────┐             ┌──────────────┐
-        │ PRODUCTS-API │             │  STOCK-API   │
-        │ (Spring Boot)│             │   (Go Lang)  │
-        │ Puerto 8081  │             │ Puerto 8082  │
-        └──────┬───────┘             └──────┬───────┘
-               │                            │
-               └────────────┬───────────────┘
-                            │
-                            ▼
-                    ┌──────────────────┐
-                    │  PRODUCTS-DB     │
-                    │ (PostgreSQL 11.6)│
-                    │   Puerto 5432    │
-                    └──────────────────┘
+Prometheus (puerto 9090) recopila métricas de Products API, Stock API y Web.
 ```
 
----
+## Componentes
 
-## Componentes del Sistema
+| Servicio | Tecnología | Puerto host | Responsabilidad |
+|---|---|---:|---|
+| `web` | ASP.NET Core 3.1 | 8080 | Interfaz web y consumo de APIs |
+| `products-api` | Spring Boot 2.4.3 / Java 11 | 8081 | Consulta de productos y métricas |
+| `stock-api` | Go 1.15.6 | 8082 | Consulta y actualización de stock |
+| `products-db` | PostgreSQL 11.6 | No publicado | Persistencia en red interna |
+| `prometheus` | Prometheus | 9090 | Recolección y consulta de métricas |
 
-### 1. products-db - Base de Datos PostgreSQL
-**Rol:** Almacenamiento centralizado de productos e información
+## Requisitos
 
-- **Imagen base:** `postgres:11.6-alpine`
-- **Puerto expuesto:** 5432
-- **Puerto interno:** 5432
-- **Características:**
-  - Inicialización automática de base de datos
-  - Tablas predefinidas con datos de café
-  - Volumen persistente de datos
+- Windows 10/11, Linux o macOS.
+- Docker Desktop o Docker Engine con Docker Compose.
+- Git, si se desea clonar el repositorio.
 
----
+## Ejecución
 
-### 2. products-api - API de Productos
-**Rol:** Servicio REST para gestión de productos
-
-- **Tecnología:** Java Spring Boot 2.4.3
-- **Puerto expuesto:** 8081
-- **Puerto interno:** 80
-- **Características:**
-  - API REST completa
-  - Documentación OpenAPI/Swagger
-  - Métricas Prometheus
-  - ORM con JPA/Hibernate
-  - Soporta secretos de Docker
-
----
-
-### 3. stock-api - API de Inventario
-**Rol:** Servicio REST para control de stock
-
-- **Tecnología:** Go Lang 1.15.6
-- **Puerto expuesto:** 8082
-- **Puerto interno:** 8080
-- **Características:**
-  - API REST ligera y rápida
-  - Conexión a PostgreSQL
-  - Métricas Prometheus
-  - Bajo consumo de recursos
-
----
-
-### 4. web - Interfaz Web Frontal
-**Rol:** Aplicación web para visualizar productos y stock
-
-- **Tecnología:** ASP.NET Core 3.1
-- **Puerto expuesto:** 8080
-- **Características:**
-  - Interfaz web interactiva
-  - Integración con APIs
-  - Múltiples versiones (v1, v2, v3)
-  - CSS personalizable
-
----
-
-## Guía de Construcción de Imágenes Docker
-
-### Prerrequisitos
+Desde la raíz del proyecto:
 
 ```bash
-# Verificar que Docker está instalado
-docker --version
-
-# Versión mínima recomendada
-# Docker: 19.03+
-# Docker Compose: 1.25+
+docker compose config
+docker compose up --build -d
+docker compose ps
 ```
 
-### Estructura del Proyecto
+El primer arranque descarga imágenes y construye los servicios. La base se considera saludable únicamente después de crear la tabla `products`, incluida la columna `stock` y los datos iniciales.
 
+## Accesos
+
+| Recurso | URL |
+|---|---|
+| Aplicación web | http://localhost:8080 |
+| Products API | http://localhost:8081/products |
+| Stock API | http://localhost:8082/stock/1 |
+| Métricas Products API | http://localhost:8081/actuator/prometheus |
+| Métricas Stock API | http://localhost:8082/metrics |
+| Prometheus | http://localhost:9090 |
+| Estado de objetivos | http://localhost:9090/targets |
+
+> La API de stock requiere un identificador: `GET /stock/{id}`. La ruta general `/stock` no está implementada.
+
+## Pruebas en PowerShell
+
+### Productos
+
+```powershell
+Invoke-RestMethod http://localhost:8081/products |
+ConvertTo-Json -Depth 5
 ```
-wired-brain-apps/
+
+### Inventario
+
+```powershell
+1..3 | ForEach-Object {
+    Invoke-RestMethod "http://localhost:8082/stock/$_"
+} | ConvertTo-Json
+```
+
+### Base de datos
+
+```powershell
+docker exec products-db psql -U postgres -d postgres -c "SELECT * FROM products;"
+```
+
+### Monitoreo
+
+En Prometheus, ejecutar la consulta:
+
+```promql
+up
+```
+
+El valor `1` indica que el objetivo está disponible.
+
+## Operación
+
+```bash
+# Logs generales
+docker compose logs -f
+
+# Logs de un servicio
+docker compose logs stock-api --tail=50
+
+# Detener sin eliminar datos
+docker compose down
+
+# Detener y eliminar volúmenes del laboratorio
+docker compose down -v
+```
+
+## Decisiones y correcciones implementadas
+
+- Se creó `docker-compose.yml` para construir y orquestar todo el sistema.
+- Se incorporó una red bridge privada para la comunicación por nombre de servicio.
+- PostgreSQL no publica el puerto 5432 al equipo anfitrión; solo es accesible dentro de la red Docker.
+- Se agregó persistencia mediante volúmenes nombrados.
+- Se agregó un healthcheck que valida la estructura y los datos requeridos antes de iniciar las APIs.
+- Se normalizan los finales de línea del script de inicialización para permitir su ejecución desde proyectos clonados en Windows.
+- Se reemplazó la etiqueta retirada `openjdk:11-jre-slim` por Eclipse Temurin 11 y se actualizó la imagen de Maven.
+- Se añadió Prometheus y su configuración de scraping para los tres servicios instrumentados.
+
+## Estructura relevante
+
+```text
+.
+├── docker-compose.yml
+├── monitoring/
+│   └── prometheus.yml
+├── capturas/
 ├── src/
 │   ├── db/
-│   │   ├── Dockerfile
-│   │   └── init-products-db.sh
 │   ├── products-api/
-│   │   ├── Dockerfile
-│   │   ├── pom.xml
-│   │   └── src/
 │   ├── stock-api/
-│   │   ├── Dockerfile
-│   │   ├── src/
-│   │   └── go.mod
 │   └── web/
-│       ├── Dockerfile
-│       └── src/
+└── README.md
 ```
 
-### Construcción Individual de Imágenes
+## Evidencias
 
-#### 1. Construcción de Base de Datos (products-db)
+Las capturas de validación, ejecución, APIs, base de datos, interfaz web y Prometheus se encuentran en `capturas/`.
 
-```bash
-# Cambiar al directorio raíz del proyecto
-cd src/
+## Informe técnico
 
-# Construir directamente
-docker build -t psdockerrun/products-db:latest db/
+El informe completo del proyecto se encuentra disponible en:
 
-# Verificar la imagen
-docker images | grep products-db
-```
+- [Informe técnico — Wired Brain Apps](docs/Informe_Tecnico_Wired_Brain_Apps.docx)
 
-**Proceso de construcción:**
-1. Descarga imagen base PostgreSQL 11.6-alpine
-2. Copia script de inicialización
-3. Script se ejecuta automáticamente al iniciar el contenedor
-
----
-
-#### 2. Construcción de API de Productos (products-api)
-
-```bash
-# Cambiar al directorio de src
-cd src/
-
-# Construir directamente
-docker build -t psdockerrun/products-api:latest products-api/
-
-# Verificar la imagen
-docker images | grep products-api
-```
-
-**Proceso de construcción (Multi-stage):**
-1. **Stage 1 - Builder (Maven):**
-   - Descarga JDK 11 y Maven
-   - Descarga dependencias Maven
-   - Compila código fuente con Maven
-   - Genera JAR ejecutable
-   
-2. **Stage 2 - Runtime:**
-   - Descarga OpenJDK 11 JRE slim
-   - Copia JAR compilado
-   - Expone puerto 80
-   - Inicia la aplicación
-
----
-
-#### 3. Construcción de API de Stock (stock-api)
-
-```bash
-# Cambiar al directorio de src
-cd src/
-
-# Construir directamente
-docker build -t psdockerrun/stock-api:latest stock-api/
-
-# Verificar la imagen
-docker images | grep stock-api
-```
-
-**Proceso de construcción (Multi-stage):**
-1. **Stage 1 - Builder (Go):**
-   - Descarga Go 1.15.6
-   - Descarga módulos de dependencias
-   - Compila código Go a binario
-   
-2. **Stage 2 - Runtime:**
-   - Descarga Alpine 3.13
-   - Copia binario compilado
-   - Expone puerto 8080
-   - Inicia servidor
-
----
-
-#### 4. Construcción de Web
-
-```bash
-# Cambiar al directorio de src
-cd src/
-
-# directamente:
-docker build -t psdockerrun/web:latest web/
-
-# Verificar las imágenes
-docker images | grep web
-```
-
-**Proceso de construcción:**
-1. **Stage 1 - Builder (SDK .NET):**
-   - Descarga SDK .NET Core 3.1 Alpine
-   - Restaura dependencias NuGet
-   - Publica aplicación en modo Release
-   
-2. **Stage 2 - Runtime:**
-   - Descarga ASP.NET Core runtime Alpine
-   - Configura variables de entorno
-   - Copia artefactos compilados
-   - Inicia aplicación ASP.NET Core
-
----
-
-## Variables de Entorno y Secretos
-
-### 1. products-db - PostgreSQL
-
-#### Variables de Entorno
-
-| Variable | Valor | Descripción |
-|----------|-------|-------------|
-| `POSTGRES_PASSWORD` | `wired` | Contraseña del usuario postgres |
-| `POSTGRES_USER` | `postgres` | Usuario por defecto (implícito) |
-| `POSTGRES_DB` | `postgres` | Base de datos por defecto |
-
-#### Inicialización
-- **Script:** `/docker-entrypoint-initdb.d/init-products-db.sh`
-- **Tablas creadas:**
-  - `products`: Almacena productos con id, name, price, stock
-
-#### Conexión
-- **Host interno:** `products-db`
-- **Puerto:** 5432
-- **URL de conexión:** `postgres://postgres:wired@products-db:5432/postgres`
-
-#### Ejemplo de uso en otros servicios
-```properties
-spring.datasource.url=jdbc:postgresql://products-db:5432/postgres
-spring.datasource.username=postgres
-spring.datasource.password=wired
-```
-
----
-
-### 2. products-api - Spring Boot
-
-#### Variables de Entorno (docker-compose.yml)
-```yaml
-# Heredadas automáticamente del contenedor
-# No se especifican en docker-compose
-```
-
-#### Archivo de Configuración: `application.properties`
-
-```properties
-# Logging
-logging.level.wiredbrain.products=DEBUG
-
-# Actuador y Prometheus
-management.endpoints.web.exposure.include=prometheus
-
-# Servidor
-server.port=80
-
-# Base de datos
-spring.jpa.database=POSTGRESQL
-spring.datasource.platform=postgres
-spring.datasource.url=jdbc:postgresql://products-db:5432/postgres
-spring.datasource.username=postgres
-spring.datasource.password=wired
-spring.jpa.show-sql=true
-spring.jpa.generate-ddl=true
-spring.jpa.hibernate.ddl-auto=update
-
-# Soporte para secretos de Docker
-spring.config.import=optional:file:/run/secrets/application.properties
-```
-
-#### Configuración en Dockerfile
-
-```dockerfile
-# Sin ENV explícitas - usa application.properties
-```
-
-#### Secretos de Docker Soportados
-- Ruta:** `/run/secrets/application.properties`
-- **Propósito:** Variables sensibles adicionales
-
-#### Endpoints Disponibles
-| Endpoint | Descripción |
-|----------|-------------|
-| `/products` | Lista todos los productos |
-| `/products/{id}` | Obtiene producto por ID |
-| `/actuator/prometheus` | Métricas Prometheus |
-| `/swagger-ui.html` | Documentación OpenAPI |
-
-#### Puertos
-- **Expuesto:** 8081 (desde localhost)
-- **Interno:** 80 (en contenedor)
-
----
-
-### 3. stock-api - Go Lang
-
-#### Variables de Entorno en Dockerfile
-
-```dockerfile
-ENV POSTGRES_CONNECTION_STRING="host=products-db port=5432 user=postgres ****** dbname=postgres sslmode=disable"
-```
-
-#### Configuración en Tiempo de Ejecución
-
-| Variable | Valor | Descripción |
-|----------|-------|-------------|
-| `POSTGRES_CONNECTION_STRING` | `host=products-db port=5432 user=postgres password dbname=postgres sslmode=disable` | Cadena de conexión PostgreSQL |
-
-#### Dependencias (go.mod)
-```
-github.com/gorilla/mux v1.8.0        # Router HTTP
-github.com/lib/pq v1.9.0             # Driver PostgreSQL
-github.com/prometheus/client_golang v1.9.0  # Métricas Prometheus
-```
-
-#### Endpoints Disponibles
-| Endpoint | Descripción |
-|----------|-------------|
-| `/stock` | Información de stock |
-| `/metrics` | Métricas Prometheus |
-
-#### Puertos
-- **Expuesto:** 8082 (desde localhost)
-- **Interno:** 8080 (en contenedor)
-
-#### Conexión a Base de Datos
-```
-host=products-db
-port=5432
-user=postgres
-password=wired
-dbname=postgres
-sslmode=disable
-```
-
----
-
-### 4. web - ASP.NET Core
-
-#### Variables de Entorno en Dockerfile
-
-```dockerfile
-ENV ProductsApi:Url="http://products-api/products" \
-    StockApi:Url="http://stock-api:8080/stock"
-```
-
-#### Configuración de Servicios
-
-| Variable | Valor | Descripción |
-|----------|-------|-------------|
-| `ProductsApi:Url` | `http://products-api/products` | URL de API de productos (red interna) |
-| `StockApi:Url` | `http://stock-api:8080/stock` | URL de API de stock (red interna) |
-
-#### Descubrimiento de Servicios
-- **Host:** Nombres de servicios en docker-compose
-  - `products-api` → Resuelve a IP del contenedor products-api
-  - `stock-api` → Resuelve a IP del contenedor stock-api
-  
-#### Puertos
-- **Expuesto:** 8080 (desde localhost)
-- **Interno:** 80 (en contenedor)
-
-## Verificación y Testing
-
-### Verificar servicios activos
-
-```bash
-# Listar contenedores
-docker ps
-
-# Inspeccionar red
-docker network inspect
-
-# Ver logs
-docker compose logs -f
-```
-
-### Testing de APIs
-
-```bash
-# Products API
-curl http://localhost:8081/products
-curl http://localhost:8081/actuator/prometheus
-
-# Stock API
-curl http://localhost:8082/stock
-curl http://localhost:8082/metrics
-
-# Web
-curl http://localhost:8080/
-
-# Acceder en navegador
-# http://localhost:8080
-```
-
-### Verificar bases de datos
-
-```bash
-# Conectar a PostgreSQL
-docker exec -it products-db psql -U postgres -d postgres
-
-# Dentro de psql:
-\dt                          # Listar tablas
-SELECT * FROM products;      # Ver productos
-\q                           # Salir
-```
-
----
-
-## Resolución de Problemas
-
-### Errores Comunes
-
-| Error | Causa | Solución |
-|-------|-------|----------|
-| Puerto ya en uso | Aplicación previa en puerto | `docker-compose down` o cambiar puerto en compose |
-| Conexión a BD rechazada | BD no lista | Aguardar con `depends_on` |
-| Red no encontrada | Problemas de composición | `docker network prune` y reintentar |
-| Imagen no encontrada | Build incompleto | `docker-compose build --no-cache` |
-
-### Limpiar ambiente
-
-```bash
-# Eliminar todos los contenedores detenidos
-docker container prune
-
-# Eliminar todas las redes no utilizadas
-docker network prune
-
-# Eliminar todas las imágenes no etiquetadas
-docker image prune
-
-# Limpiar todo (BE CAREFUL)
-docker system prune -a
-```
-
----
-
-## Recursos Adicionales
-
-- [Docker Documentation](https://docs.docker.com/)
-- [Docker Compose Documentation](https://docs.docker.com/compose/)
-- [Spring Boot Docker](https://spring.io/guides/gs/spring-boot-docker/)
-- [PostgreSQL Docker](https://hub.docker.com/_/postgres)
-- [ASP.NET Core Docker](https://hub.docker.com/_/microsoft-dotnet)
-- [Go Docker](https://hub.docker.com/_/golang)
-
----
-
-## Licencia y Autoría
-
-- **Proyecto:** Wired Brain Apps
-- **Componentes:** Multi-stack (Java, Go, .NET Core)
-- **Propósito:** Educativo - Arquitectura de Microservicios
-- **Año:** 2024
-
----
+## Autores
+Antonio Aguero
+Victor Martinez
+Hernan Silgueira
+UCOM, Integración de Sistemas I, 2026.
